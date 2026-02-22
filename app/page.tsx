@@ -214,9 +214,9 @@ export default function Home() {
       </main>
 
       {/* Site footer */}
-      <footer className="border-t border-[var(--border)] bg-[var(--surface-1)]">
-        <div className="max-w-5xl mx-auto px-6 py-6">
-          <p className="font-mono text-[11px] text-[var(--text-muted)] leading-relaxed max-w-2xl">
+      <footer className="border-t border-[#c9bfb3] bg-[#f6f1eb]">
+        <div className="max-w-5xl mx-auto px-6 py-8">
+          <p className="text-[15px] text-[#7a7168] leading-relaxed max-w-2xl" style={{ fontFamily: '"Instrument Serif", Georgia, serif' }}>
             Every time an AI coding tool reads your API docs, the tool spends
             tokens. Does the format of those docs affect the number of tokens?
             The code quality? We ran over 21,000 integration tests across 4 AI
@@ -225,7 +225,7 @@ export default function Home() {
               href="https://tokensnotjokin.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-accent-blue/70 hover:text-accent-blue transition-colors"
+              className="text-[#c44b1a] hover:text-[#e8693a] transition-colors"
             >
               See the results →
             </a>
