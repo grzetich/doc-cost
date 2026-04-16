@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { analyzeDocumentation, analyzeLanguageCost, AnalysisResult, LanguageCostAnalysis } from "@/lib/tokenizer";
+import { analyzeDocumentation, analyzeLanguageCost, AnalysisResult, LanguageCostAnalysis, PRICING_MODELS, PricingModel, DEFAULT_PRICING_MODEL } from "@/lib/tokenizer";
 import { EXAMPLES, ExampleKey } from "@/lib/examples";
 import { TokenBar } from "./components/TokenBar";
 import { SavingsCard } from "./components/SavingsCard";
@@ -13,38 +13,18 @@ export default function Home() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [langAnalysis, setLangAnalysis] = useState<LanguageCostAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [pricingModel, setPricingModel] = useState<PricingModel>(DEFAULT_PRICING_MODEL);
 
-  const handleAnalyze = useCallback(() => {
-    if (!input.trim()) return;
+  const runAnalysis = useCallback((text: string, model: PricingModel) => {
+    if (!text.trim()) return;
     setIsAnalyzing(true);
 
-    // Small delay for visual feedback
     setTimeout(() => {
-      const result = analyzeDocumentation(input);
-      setAnalysis(result);
-
-      // Run language comparison if we have structured data
-      if (result.parsed) {
-        const langResult = analyzeLanguageCost(result.parsed);
-        setLangAnalysis(langResult);
-      } else {
-        setLangAnalysis(null);
-      }
-
-      setIsAnalyzing(false);
-    }, 150);
-  }, [input]);
-
-  const handleExample = useCallback((key: ExampleKey) => {
-    const example = EXAMPLES[key];
-    setInput(example);
-    setIsAnalyzing(true);
-    setTimeout(() => {
-      const result = analyzeDocumentation(example);
+      const result = analyzeDocumentation(text, model);
       setAnalysis(result);
 
       if (result.parsed) {
-        const langResult = analyzeLanguageCost(result.parsed);
+        const langResult = analyzeLanguageCost(result.parsed, model);
         setLangAnalysis(langResult);
       } else {
         setLangAnalysis(null);
@@ -53,12 +33,30 @@ export default function Home() {
       setIsAnalyzing(false);
     }, 150);
   }, []);
+
+  const handleAnalyze = useCallback(() => {
+    runAnalysis(input, pricingModel);
+  }, [input, pricingModel, runAnalysis]);
+
+  const handleExample = useCallback((key: ExampleKey) => {
+    const example = EXAMPLES[key];
+    setInput(example);
+    runAnalysis(example, pricingModel);
+  }, [pricingModel, runAnalysis]);
 
   const handleClear = useCallback(() => {
     setInput("");
     setAnalysis(null);
     setLangAnalysis(null);
   }, []);
+
+  const handlePricingChange = useCallback((modelId: string) => {
+    const model = PRICING_MODELS.find(m => m.id === modelId) || DEFAULT_PRICING_MODEL;
+    setPricingModel(model);
+    if (input.trim()) {
+      runAnalysis(input, model);
+    }
+  }, [input, runAnalysis]);
 
   const maxTokens = analysis
     ? Math.max(...analysis.formats.map((f) => f.tokens))
@@ -121,12 +119,31 @@ export default function Home() {
           />
 
           <div className="flex items-center justify-between mt-3">
-            <div className="font-mono text-[11px] text-[var(--text-muted)]">
-              {input.length > 0 && (
-                <span>{input.length.toLocaleString()} characters</span>
-              )}
+            <div className="flex items-center gap-3">
+              <div className="font-mono text-[11px] text-[var(--text-muted)]">
+                {input.length > 0 && (
+                  <span>{input.length.toLocaleString()} characters</span>
+                )}
+              </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              {/* Pricing model selector */}
+              <div className="flex items-center gap-1.5">
+                <label className="font-mono text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
+                  Pricing:
+                </label>
+                <select
+                  value={pricingModel.id}
+                  onChange={(e) => handlePricingChange(e.target.value)}
+                  className="font-mono text-[11px] text-[var(--text-secondary)] bg-[var(--surface-1)] border border-[var(--border)] rounded px-2 py-1 cursor-pointer hover:border-[var(--text-muted)] transition-colors"
+                >
+                  {PRICING_MODELS.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name} (${model.costPer1MTokens}/M)
+                    </option>
+                  ))}
+                </select>
+              </div>
               {input.length > 0 && (
                 <button
                   onClick={handleClear}
@@ -151,7 +168,7 @@ export default function Home() {
           <div className="space-y-6">
             {/* Savings summary */}
             {analysis.formats.length > 1 && (
-              <SavingsCard analysis={analysis} />
+              <SavingsCard analysis={analysis} pricingModel={pricingModel} />
             )}
 
             {/* Format comparison */}
@@ -175,7 +192,7 @@ export default function Home() {
 
             {/* Scale projection */}
             {analysis.formats.length > 1 && (
-              <ScaleProjection analysis={analysis} />
+              <ScaleProjection analysis={analysis} pricingModel={pricingModel} />
             )}
 
             {/* Language cost comparison */}
@@ -185,15 +202,15 @@ export default function Home() {
             <footer className="rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-4">
               <p className="font-mono text-[11px] text-[var(--text-muted)] leading-relaxed">
                 Token counts use cl100k_base encoding (GPT-4, Claude). Costs
-                estimated at GPT-4o input pricing ($2.50/1M tokens). Actual
-                costs vary by model and provider. The format that costs the
-                least to tokenize isn&apos;t always the format an LLM understands
-                best. Structure, clarity, and schema consistency matter too.{" "}
+                estimated at {pricingModel.name} input pricing (${pricingModel.costPer1MTokens}/1M tokens). Actual
+                costs vary by provider and usage tier. In April 2026, Anthropic, OpenAI, and GitHub
+                all moved toward per-token billing for AI coding tools, making token
+                efficiency a direct cost factor.{" "}
                 <a
-                  href="https://grzeti.ch"
+                  href="https://tokensnotjokin.com"
                   className="text-accent-blue/70 hover:text-accent-blue"
                 >
-                  Read my research →
+                  Read the research →
                 </a>
               </p>
             </footer>
@@ -214,18 +231,19 @@ export default function Home() {
       </main>
 
       {/* Site footer */}
-      <footer className="border-t border-[var(--border)] bg-[var(--surface-1)]">
-        <div className="max-w-5xl mx-auto px-6 py-6">
-          <p className="font-mono text-[11px] text-[var(--text-muted)] leading-relaxed max-w-2xl">
+      <footer className="border-t border-[#c9bfb3] bg-[#f6f1eb]">
+        <div className="max-w-5xl mx-auto px-6 py-8">
+          <p className="text-[15px] text-[#7a7168] leading-relaxed max-w-2xl" style={{ fontFamily: '"Instrument Serif", Georgia, serif' }}>
             Every time an AI coding tool reads your API docs, the tool spends
-            tokens. Does the format of those docs affect the number of tokens?
-            The code quality? We ran over 21,000 integration tests across 4 AI
-            models and 2 APIs to find out.{" "}
+            tokens. With per-token billing now the industry standard, the format
+            of those docs is a line item on your customers&apos; invoices. We ran over
+            21,000 integration tests across 4 AI models and 2 APIs to find out
+            how much format matters.{" "}
             <a
               href="https://tokensnotjokin.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-accent-blue/70 hover:text-accent-blue transition-colors"
+              className="text-[#c44b1a] hover:text-[#e8693a] transition-colors"
             >
               See the results →
             </a>

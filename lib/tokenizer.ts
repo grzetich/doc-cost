@@ -5,6 +5,26 @@ import yaml from "js-yaml";
 // Use cl100k_base (GPT-4/Claude) as default encoding
 const encoder = new Tiktoken(cl100k_base);
 
+export interface PricingModel {
+  id: string;
+  name: string;
+  provider: string;
+  costPer1MTokens: number; // input tokens
+}
+
+// Current pricing as of April 2026
+export const PRICING_MODELS: PricingModel[] = [
+  { id: "gpt-4o", name: "GPT-4o", provider: "OpenAI", costPer1MTokens: 2.50 },
+  { id: "gpt-5", name: "GPT-5", provider: "OpenAI", costPer1MTokens: 1.25 },
+  { id: "gpt-5-codex", name: "GPT-5 Codex", provider: "OpenAI", costPer1MTokens: 1.25 },
+  { id: "claude-sonnet", name: "Claude Sonnet 4.6", provider: "Anthropic", costPer1MTokens: 3.00 },
+  { id: "claude-opus", name: "Claude Opus 4.6", provider: "Anthropic", costPer1MTokens: 15.00 },
+  { id: "gemini-flash", name: "Gemini 3 Flash", provider: "Google", costPer1MTokens: 0.50 },
+  { id: "gemini-pro", name: "Gemini 3.1 Pro", provider: "Google", costPer1MTokens: 2.00 },
+];
+
+export const DEFAULT_PRICING_MODEL = PRICING_MODELS[0]; // GPT-4o
+
 export interface FormatResult {
   format: string;
   content: string;
@@ -12,7 +32,7 @@ export interface FormatResult {
   characters: number;
   lines: number;
   tokensPerLine: number;
-  costPer1kTokens: number; // estimated at GPT-4o input pricing
+  costPer1kTokens: number;
   estimatedCost: number;
 }
 
@@ -29,8 +49,9 @@ export interface AnalysisResult {
   };
 }
 
-// Current approximate pricing per 1K input tokens (GPT-4o)
-const COST_PER_1K_TOKENS = 0.0025;
+function costPer1kFromModel(model: PricingModel): number {
+  return model.costPer1MTokens / 1000;
+}
 
 function countTokens(text: string): number {
   return encoder.encode(text).length;
@@ -87,10 +108,12 @@ function parseInput(
 
 function buildFormatResult(
   format: string,
-  content: string
+  content: string,
+  pricingModel: PricingModel
 ): FormatResult {
   const tokens = countTokens(content);
   const lines = content.split("\n").length;
+  const costPer1k = costPer1kFromModel(pricingModel);
   return {
     format,
     content,
@@ -98,19 +121,23 @@ function buildFormatResult(
     characters: content.length,
     lines,
     tokensPerLine: Math.round((tokens / lines) * 10) / 10,
-    costPer1kTokens: COST_PER_1K_TOKENS,
+    costPer1kTokens: costPer1k,
     estimatedCost:
-      Math.round((tokens / 1000) * COST_PER_1K_TOKENS * 1000000) / 1000000,
+      Math.round((tokens / 1000) * costPer1k * 1000000) / 1000000,
   };
 }
 
-export function analyzeDocumentation(input: string): AnalysisResult {
+export function analyzeDocumentation(
+  input: string,
+  pricingModel: PricingModel = DEFAULT_PRICING_MODEL
+): AnalysisResult {
   const trimmed = input.trim();
   const { parsed, detectedFormat } = parseInput(trimmed);
 
   const original = buildFormatResult(
     `Original (${detectedFormat})`,
-    trimmed
+    trimmed,
+    pricingModel
   );
 
   const formats: FormatResult[] = [original];
@@ -122,20 +149,18 @@ export function analyzeDocumentation(input: string): AnalysisResult {
     const jsonCompact = toJSONCompact(parsed);
 
     if (detectedFormat !== "YAML") {
-      formats.push(buildFormatResult("YAML", yamlContent));
+      formats.push(buildFormatResult("YAML", yamlContent, pricingModel));
     }
     if (detectedFormat !== "JSON") {
-      formats.push(buildFormatResult("JSON (Pretty)", jsonContent));
+      formats.push(buildFormatResult("JSON (Pretty)", jsonContent, pricingModel));
     }
-    formats.push(buildFormatResult("JSON (Compact)", jsonCompact));
+    formats.push(buildFormatResult("JSON (Compact)", jsonCompact, pricingModel));
   }
 
   // Always add the raw text token count for comparison
-  // This helps show overhead of structured formats vs prose
   if (parsed && detectedFormat !== "Plain Text") {
-    // Create a minimal prose version by extracting values
     const plainText = extractPlainText(parsed);
-    formats.push(buildFormatResult("Plain Text (values only)", plainText));
+    formats.push(buildFormatResult("Plain Text (values only)", plainText, pricingModel));
   }
 
   // Find best format
@@ -189,7 +214,7 @@ export interface LanguageCostResult {
   tokens: number;
   characters: number;
   costPerCall: number;
-  tokenMultiplier: number; // vs English baseline
+  tokenMultiplier: number;
 }
 
 export interface LanguageCostAnalysis {
@@ -198,16 +223,13 @@ export interface LanguageCostAnalysis {
   maxTokens: number;
 }
 
-/**
- * Given a parsed object and a format serializer, compute token cost
- * for each supported language.
- */
 export function analyzeLanguageCost(
-  parsed: Record<string, unknown>
+  parsed: Record<string, unknown>,
+  pricingModel: PricingModel = DEFAULT_PRICING_MODEL
 ): LanguageCostAnalysis | null {
-  // Use JSON as the consistent format for comparison
   const results: LanguageCostResult[] = [];
   let englishTokens = 0;
+  const costPer1k = costPer1kFromModel(pricingModel);
 
   for (const lang of LANGUAGES) {
     const translated = translateDoc(parsed, lang.code);
@@ -224,12 +246,11 @@ export function analyzeLanguageCost(
       tokens,
       characters,
       costPerCall:
-        Math.round((tokens / 1000) * COST_PER_1K_TOKENS * 1000000) / 1000000,
-      tokenMultiplier: 0, // calculated below
+        Math.round((tokens / 1000) * costPer1k * 1000000) / 1000000,
+      tokenMultiplier: 0,
     });
   }
 
-  // Calculate multipliers relative to English
   for (const r of results) {
     r.tokenMultiplier =
       englishTokens > 0

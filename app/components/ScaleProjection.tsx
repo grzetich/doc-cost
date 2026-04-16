@@ -1,9 +1,10 @@
 "use client";
 
-import { AnalysisResult } from "@/lib/tokenizer";
+import { AnalysisResult, PricingModel } from "@/lib/tokenizer";
 
 interface ScaleProjectionProps {
   analysis: AnalysisResult;
+  pricingModel: PricingModel;
 }
 
 const SCALE_TIERS = [
@@ -13,7 +14,7 @@ const SCALE_TIERS = [
   { calls: 1000000, label: "1M" },
 ];
 
-export function ScaleProjection({ analysis }: ScaleProjectionProps) {
+export function ScaleProjection({ analysis, pricingModel }: ScaleProjectionProps) {
   const best = analysis.formats[0];
   const worst = analysis.formats[analysis.formats.length - 1];
 
@@ -24,7 +25,7 @@ export function ScaleProjection({ analysis }: ScaleProjectionProps) {
           Cost at scale
         </h3>
         <span className="text-[10px] font-mono text-[var(--text-muted)]">
-          (GPT-4o input pricing)
+          ({pricingModel.name} · ${pricingModel.costPer1MTokens}/M input tokens)
         </span>
       </div>
 

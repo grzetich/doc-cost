@@ -1,12 +1,13 @@
 "use client";
 
-import { AnalysisResult } from "@/lib/tokenizer";
+import { AnalysisResult, PricingModel } from "@/lib/tokenizer";
 
 interface SavingsCardProps {
   analysis: AnalysisResult;
+  pricingModel: PricingModel;
 }
 
-export function SavingsCard({ analysis }: SavingsCardProps) {
+export function SavingsCard({ analysis, pricingModel }: SavingsCardProps) {
   const { savings } = analysis;
 
   return (
@@ -33,7 +34,7 @@ export function SavingsCard({ analysis }: SavingsCardProps) {
         <BigStat
           value={`$${savings.costSavingsPerCall.toFixed(6)}`}
           label="Saved per call"
-          sublabel="at GPT-4o input pricing"
+          sublabel={`at ${pricingModel.name} pricing`}
         />
         <BigStat
           value={`$${savings.costSavingsPer10kCalls.toFixed(2)}`}
