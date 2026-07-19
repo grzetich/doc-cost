@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import posthog from "posthog-js";
 import { analyzeDocumentation, analyzeLanguageCost, AnalysisResult, LanguageCostAnalysis, PRICING_MODELS, PricingModel, DEFAULT_PRICING_MODEL } from "@/lib/tokenizer";
 import { EXAMPLES, ExampleKey } from "@/lib/examples";
 import { TokenBar } from "./components/TokenBar";
@@ -16,7 +15,7 @@ export default function Home() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [pricingModel, setPricingModel] = useState<PricingModel>(DEFAULT_PRICING_MODEL);
 
-  const runAnalysis = useCallback((text: string, model: PricingModel, fromExample?: string) => {
+  const runAnalysis = useCallback((text: string, model: PricingModel) => {
     if (!text.trim()) return;
     setIsAnalyzing(true);
 
@@ -32,19 +31,6 @@ export default function Home() {
       }
 
       setIsAnalyzing(false);
-
-      posthog.capture("documentation_analyzed", {
-        format_detected: result.original.format,
-        token_count: result.original.tokens,
-        character_count: result.original.characters,
-        best_format: result.savings.bestFormat,
-        token_reduction_percent: result.savings.percentReduction,
-        pricing_model_id: model.id,
-        pricing_model_name: model.name,
-        pricing_model_provider: model.provider,
-        from_example: fromExample ?? null,
-        format_count: result.formats.length,
-      });
     }, 150);
   }, []);
 
@@ -55,29 +41,17 @@ export default function Home() {
   const handleExample = useCallback((key: ExampleKey) => {
     const example = EXAMPLES[key];
     setInput(example);
-    posthog.capture("example_loaded", { example_name: key });
-    runAnalysis(example, pricingModel, key);
+    runAnalysis(example, pricingModel);
   }, [pricingModel, runAnalysis]);
 
   const handleClear = useCallback(() => {
-    posthog.capture("documentation_cleared", {
-      had_results: analysis !== null,
-      character_count: input.length,
-    });
     setInput("");
     setAnalysis(null);
     setLangAnalysis(null);
-  }, [input, analysis]);
+  }, []);
 
   const handlePricingChange = useCallback((modelId: string) => {
     const model = PRICING_MODELS.find(m => m.id === modelId) || DEFAULT_PRICING_MODEL;
-    posthog.capture("pricing_model_changed", {
-      model_id: model.id,
-      model_name: model.name,
-      model_provider: model.provider,
-      cost_per_1m_tokens: model.costPer1MTokens,
-      has_document: input.trim().length > 0,
-    });
     setPricingModel(model);
     if (input.trim()) {
       runAnalysis(input, model);
@@ -107,7 +81,6 @@ export default function Home() {
               target="_blank"
               rel="noopener noreferrer"
               className="font-mono text-[11px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
-              onClick={() => posthog.capture("external_link_clicked", { url: "https://grzeti.ch", label: "by Ed Grzetich", location: "header" })}
             >
               by Ed Grzetich
             </a>
@@ -236,7 +209,6 @@ export default function Home() {
                 <a
                   href="https://tokensnotjokin.com"
                   className="text-accent-blue/70 hover:text-accent-blue"
-                  onClick={() => posthog.capture("external_link_clicked", { url: "https://tokensnotjokin.com", label: "Read the research", location: "results_footer" })}
                 >
                   Read the research →
                 </a>
@@ -272,7 +244,6 @@ export default function Home() {
               target="_blank"
               rel="noopener noreferrer"
               className="text-[#c44b1a] hover:text-[#e8693a] transition-colors"
-              onClick={() => posthog.capture("external_link_clicked", { url: "https://tokensnotjokin.com", label: "See the results", location: "site_footer" })}
             >
               See the results →
             </a>
