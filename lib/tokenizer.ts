@@ -12,22 +12,23 @@ export interface PricingModel {
   costPer1MTokens: number; // input tokens
 }
 
-// Current pricing as of July 2026 (input tokens per 1M)
+// Current pricing as of September 2026 (input tokens per 1M, standard/non-batch rates)
 export const PRICING_MODELS: PricingModel[] = [
   { id: "gpt-5.4-nano", name: "GPT-5.4 Nano", provider: "OpenAI", costPer1MTokens: 0.20 },
-  { id: "gpt-5", name: "GPT-5", provider: "OpenAI", costPer1MTokens: 0.625 },
+  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "Google", costPer1MTokens: 0.30 },
+  { id: "gemini-3-flash", name: "Gemini 3 Flash", provider: "Google", costPer1MTokens: 0.50 },
   { id: "gpt-5.4-mini", name: "GPT-5.4 Mini", provider: "OpenAI", costPer1MTokens: 0.75 },
   { id: "claude-haiku", name: "Claude Haiku 4.5", provider: "Anthropic", costPer1MTokens: 1.00 },
+  { id: "gpt-5", name: "GPT-5", provider: "OpenAI", costPer1MTokens: 1.25 },
+  { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", provider: "Google", costPer1MTokens: 1.25 },
+  { id: "claude-sonnet", name: "Claude Sonnet 5", provider: "Anthropic", costPer1MTokens: 2.00 },
   { id: "gemini-3.1-pro", name: "Gemini 3.1 Pro", provider: "Google", costPer1MTokens: 2.00 },
+  { id: "grok-4.7", name: "Grok 4.7", provider: "xAI", costPer1MTokens: 2.00 },
   { id: "gpt-4o", name: "GPT-4o", provider: "OpenAI", costPer1MTokens: 2.50 },
   { id: "gpt-5.4", name: "GPT-5.4", provider: "OpenAI", costPer1MTokens: 2.50 },
-  { id: "claude-sonnet", name: "Claude Sonnet 5", provider: "Anthropic", costPer1MTokens: 2.00 }, // intro rate through 2026-08-31; reverts to 3.00
   { id: "claude-opus", name: "Claude Opus 4.8", provider: "Anthropic", costPer1MTokens: 5.00 },
   { id: "gpt-5.5", name: "GPT-5.5", provider: "OpenAI", costPer1MTokens: 5.00 },
   { id: "claude-fable", name: "Claude Fable 5", provider: "Anthropic", costPer1MTokens: 10.00 },
-  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "Google", costPer1MTokens: 0.30 },
-  { id: "gemini-3-flash", name: "Gemini 3 Flash", provider: "Google", costPer1MTokens: 0.50 },
-  { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", provider: "Google", costPer1MTokens: 1.25 },
 ];
 
 export const DEFAULT_PRICING_MODEL = PRICING_MODELS.find(m => m.id === "claude-sonnet")!; // Claude Sonnet 5
